@@ -1,0 +1,46 @@
+---
+
+- name: Common tasks for host bootstrapping
+  hosts: localhost
+  become: yes
+
+  vars:
+    document_root: /var/www
+    app_path: "{{ document_root }}/{{ app_name }}"
+
+  tasks:
+  - block:
+    - name: Create the document root
+      file: path={{ app_path }} state=directory mode=0755
+
+    - name: Add index.php to the document root
+      template: src=templates/index.php.j2 dest={{ app_path }}/index.php
+
+    - name: Create the nginx virtual host
+      template: src=templates/site.conf.j2 dest=/etc/nginx/conf.d/{{ app_name }}.conf
+
+    - name: Restart nginx
+      service: name=nginx state=restarted
+
+  - block:
+    - name: Set database name
+      shell: echo -n {{ app_name }} | sed 's/\./_/'
+      register: db
+
+    - name: Set database password
+      shell: openssl rand -base64 12
+      register: password
+
+    - name: Create new database
+      mysql_db: name={{ db.stdout }} state=present
+
+    - name: Write database password to file
+      copy: content="{{ password.stdout }}" dest="{{ app_path }}/.db_passwd"
+
+    - name: Create new database user
+      mysql_user:
+        name: "{{ db.stdout }}"
+        password: "{{ password.stdout }}"
+        priv: "{{ db.stdout }}.*:ALL"
+        host: localhost
+        state: present

@@ -1,0 +1,20 @@
+server {
+    listen 80;
+    server_name {{ app_name }} www.{{ app_name }};
+    root /var/www/{{ app_name }};
+
+    index index.php index.html;
+
+    location / {
+        try_files $uri $uri/ =404;
+    }
+
+    location ~ \.php$ {
+        include         snippets/fastcgi-php.conf;
+        fastcgi_pass    127.0.0.1:9090;
+    }
+
+    location ~ /\.ht {
+        deny all;
+    }
+}
